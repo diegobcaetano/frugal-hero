@@ -1,6 +1,8 @@
 # Frugal-Hero
 
-This service will help you detect any waste of resources in your AWS account. The policy is: if it is not useful, delete it!
+This service will help you detect resources created in your AWS account that are not being used. 
+Currently, the only output is a list of resources in the console. Future versions will support different types of output, 
+making possible to integrate the output with automation tools. 
 
 ![](https://media4.giphy.com/media/Ti22D4CDvb5fvUtNPC/giphy.gif?cid=790b7611186d72ab4214d8197f00edd1ad4ea6d1ec0b9b3b&rid=giphy.gif&ct=g)
 
@@ -14,7 +16,7 @@ This service will help you detect any waste of resources in your AWS account. Th
 
 Go to the source folder, and type the following command
 ```
-go build -o bin/fh main.go
+go build -o fh
 ```
 
 ## Running
@@ -25,8 +27,16 @@ The following services are available
 
 ### S3
 
-This service checks if there is empty buckets in your account
+This service checks if there is empty buckets in your account (it will only look for buckets that are in the same region configured in your AWS-CLI)
 
 ```
-bin/fh s3
+fh s3
+```
+
+### Lambda
+
+This service returns a list of all functions that are not invoked in the past 7 days.
+
+```
+fh lambda
 ```
