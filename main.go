@@ -18,7 +18,6 @@ func track(name string) func() {
 
 func main() {
 	defer track("main")()
-
 	service, err := services.GetService(os.Args[1])
 
 	if err != nil {

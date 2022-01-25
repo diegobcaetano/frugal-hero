@@ -38,7 +38,7 @@ func (s *Service) getFunctions(
 	lambdaList, lambdaErr := lambdaService.ListFunctions(params)
 
 	if lambdaErr != nil {
-		fmt.Print("ERROR", lambdaErr)
+		fmt.Print("Unable to fetch ", lambdaErr)
 		os.Exit(1)
 	}
 
@@ -53,9 +53,10 @@ func (s *Service) getFunctions(
 func (s *Service) getFunctionMetrics(
 	cw *cloudwatch.CloudWatch,
 	f *lambda.FunctionConfiguration,
-	c chan FunctionStatus) {
+	functionMetricsChannel chan FunctionStatus) {
+
 	defer s.metricsWaitGroup.Done()
-	//fmt.Printf("Lambda: %v\n", aws.StringValue(f.FunctionName))
+
 	params := &cloudwatch.GetMetricStatisticsInput{
 		Namespace:  aws.String("AWS/Lambda"),
 		MetricName: aws.String("Invocations"),
@@ -69,7 +70,7 @@ func (s *Service) getFunctionMetrics(
 	}
 	result, err := cw.GetMetricStatistics(params)
 	if err != nil {
-		c <- FunctionStatus{
+		functionMetricsChannel <- FunctionStatus{
 			functionName:  aws.StringValue(f.FunctionName),
 			hasInvocation: false,
 			err:           err.(awserr.Error)}
@@ -77,10 +78,10 @@ func (s *Service) getFunctionMetrics(
 	}
 
 	if len(result.Datapoints) == 0 {
-		c <- FunctionStatus{functionName: aws.StringValue(f.FunctionName), hasInvocation: false}
+		functionMetricsChannel <- FunctionStatus{functionName: aws.StringValue(f.FunctionName), hasInvocation: false}
 		return
 	}
-	c <- FunctionStatus{functionName: aws.StringValue(f.FunctionName), hasInvocation: true}
+	functionMetricsChannel <- FunctionStatus{functionName: aws.StringValue(f.FunctionName), hasInvocation: true}
 }
 
 func (s *Service) Inspect(output outputs.OutputInterface) {
@@ -94,7 +95,7 @@ func (s *Service) Inspect(output outputs.OutputInterface) {
 	}()
 
 	functionsChannel := make(chan *lambda.ListFunctionsOutput)
-	c := make(chan FunctionStatus)
+	functionMetricsChannel := make(chan FunctionStatus)
 	s.functionsWaitGroup.Add(1)
 	go s.getFunctions(lambdaService, functionsChannel, nil)
 
@@ -108,15 +109,15 @@ func (s *Service) Inspect(output outputs.OutputInterface) {
 	for functionList := range functionsChannel {
 		for _, f := range functionList.Functions {
 			s.metricsWaitGroup.Add(1)
-			go s.getFunctionMetrics(cwService, f, c)
+			go s.getFunctionMetrics(cwService, f, functionMetricsChannel)
 		}
 	}
 
 	go func() {
 		s.metricsWaitGroup.Wait()
-		close(c)
+		close(functionMetricsChannel)
 	}()
-	for status := range c {
+	for status := range functionMetricsChannel {
 		if !status.hasInvocation {
 			countNonInvokedFunctions++
 			output.Read([]byte(fmt.Sprintf("Function Name: \t %v\n", status.functionName)))

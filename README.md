@@ -40,3 +40,11 @@ This service returns a list of all functions that are not invoked in the past 7 
 ```
 ./fh lambda
 ```
+
+## Roadmap
+
+The next features are:
+
+* Test: add test to the known features
+* SQS: list idle queues
+* Output JSON: export the result to a JSON file to make it easy to integrate with automation tools

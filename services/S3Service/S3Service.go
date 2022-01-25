@@ -5,6 +5,7 @@ import (
 	"frugal-hero/outputs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"sync"
 )
@@ -12,16 +13,16 @@ import (
 type BucketStatus struct {
 	bucketName string
 	isEmpty    bool
-	err awserr.Error
+	err        awserr.Error
 }
 
 type Service struct {
-	waitGroup  sync.WaitGroup
-	AwsService *s3.S3
+	waitGroup sync.WaitGroup
+	Session   session.Session
 }
 
-func (s *Service) getAllBuckets() (*s3.ListBucketsOutput, error) {
-	result, err := s.AwsService.ListBuckets(&s3.ListBucketsInput{})
+func (s *Service) getAllBuckets(s3Service *s3.S3) (*s3.ListBucketsOutput, error) {
+	result, err := s3Service.ListBuckets(&s3.ListBucketsInput{})
 	if err != nil {
 		return nil, err
 	}
@@ -29,14 +30,14 @@ func (s *Service) getAllBuckets() (*s3.ListBucketsOutput, error) {
 	return result, nil
 }
 
-func (s *Service) isBucketEmpty(bucket string, c chan BucketStatus) {
+func (s *Service) isBucketEmpty(s3Service *s3.S3, bucket string, c chan BucketStatus) {
 	defer s.waitGroup.Done()
 	params := &s3.ListObjectsInput{
 		Bucket:  aws.String(bucket),
 		MaxKeys: aws.Int64(1),
 	}
 
-	obj, objErr := s.AwsService.ListObjects(params)
+	obj, objErr := s3Service.ListObjects(params)
 
 	if objErr != nil {
 		c <- BucketStatus{bucketName: bucket, isEmpty: false, err: objErr.(awserr.Error)}
@@ -50,7 +51,9 @@ func (s *Service) isBucketEmpty(bucket string, c chan BucketStatus) {
 }
 
 func (s *Service) Inspect(output outputs.OutputInterface) {
-	result, err := s.getAllBuckets()
+
+	s3Service := s3.New(&s.Session)
+	result, err := s.getAllBuckets(s3Service)
 	defer output.Write()
 
 	if err != nil {
@@ -60,11 +63,12 @@ func (s *Service) Inspect(output outputs.OutputInterface) {
 	}
 
 	fmt.Printf("Total number of buckets: %v\n", len(result.Buckets))
+	fmt.Println("Fetching all the empty buckets...")
 	c := make(chan BucketStatus)
 
 	for _, bucket := range result.Buckets {
 		s.waitGroup.Add(1)
-		go s.isBucketEmpty(*bucket.Name, c)
+		go s.isBucketEmpty(s3Service, *bucket.Name, c)
 	}
 
 	go func() {

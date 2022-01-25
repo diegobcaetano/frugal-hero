@@ -5,7 +5,6 @@ import (
 	"frugal-hero/services/LambdaService"
 	"frugal-hero/services/S3Service"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 func getAWSSession() *session.Session {
@@ -18,7 +17,7 @@ func getAWSSession() *session.Session {
 func GetService(name string) (IService, error) {
 	switch name {
 	case "s3":
-		return &S3Service.Service{AwsService: s3.New(getAWSSession())}, nil
+		return &S3Service.Service{Session: *getAWSSession()}, nil
 	case "lambda":
 		return &LambdaService.Service{Session: *getAWSSession()}, nil
 	}
