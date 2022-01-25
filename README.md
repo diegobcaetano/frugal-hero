@@ -30,7 +30,7 @@ The following services are available
 This service checks if there is empty buckets in your account (it will only look for buckets that are in the same region configured in your AWS-CLI)
 
 ```
-fh s3
+./fh s3
 ```
 
 ### Lambda
@@ -38,5 +38,5 @@ fh s3
 This service returns a list of all functions that are not invoked in the past 7 days.
 
 ```
-fh lambda
+./fh lambda
 ```
